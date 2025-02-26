@@ -12,10 +12,12 @@ import com.example.trivialapproom.data.AppContainer
 import com.example.trivialapproom.data.QuestionRepository
 import com.example.trivialapproom.data.TriviaPreferencesRepository
 import com.example.trivialapproom.data.TrivialGame
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 
@@ -137,16 +139,29 @@ class TrivialViewModel(
 
     fun saveGame(playerName: String, score: Int, category: String) {
         viewModelScope.launch {
-            val newGame = TrivialGame(
-                payer = playerName,
-                score = score,
-                category = category
-            )
-            trivialGameRepository.gameRepository.insertGame(newGame)
+            val games = trivialGameRepository.gameRepository.getAllGames().first() // Obtener todos los juegos existentes
+            val existingGame = games.find { it.payer == playerName && it.category == category && it.score == score }
 
-            // Imprimir los resultados en el terminal
-            println("Game Saved! Player: $playerName, Category: $category, Score: $score")
+            if (existingGame == null) {
+                val newGame = TrivialGame(
+                    payer = playerName,
+                    score = score,
+                    category = category
+                )
+                trivialGameRepository.gameRepository.insertGame(newGame)
+
+                // Imprimir los resultados en el terminal
+                println("Game Saved! Player: $playerName, Category: $category, Score: $score")
+            } else {
+                println("Game already exists for Player: $playerName, Category: $category, Score: $score")
+            }
         }
+    }
+
+
+    // Nueva función para obtener todos los juegos desde la base de datos
+    fun getAllGames(): Flow<List<TrivialGame>> {
+        return trivialGameRepository.gameRepository.getAllGames()
     }
 
 

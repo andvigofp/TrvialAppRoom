@@ -43,10 +43,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.trivialapproom.data.TrivialGame
 import com.example.trivialapproom.model.Question
 import com.example.trivialapproom.ui.state.Category
 import com.example.trivialapproom.ui.state.TrivialUiState
 import com.example.trivialapproom.ui.state.TrivialViewModel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,7 +151,8 @@ fun GameScreen(
                         onNextQuestion = { gameViewModel.onNextQuestion() },
                         onRestartGame = { gameViewModel.onRestartGame() },
                         onBackToHome = { gameViewModel.onBackToHome() },
-                        saveGame = { player, score, category -> gameViewModel.saveGame(player, score, category) }  // Añadido: función lambda para guardar el juego
+                        saveGame = { player, score, category -> gameViewModel.saveGame(player, score, category) },  // Añadido: función lambda para guardar el juego,
+                        getAllGames = { gameViewModel.getAllGames() }  // Añadido: función lambda para obtener todos los juegos
                     )
                 }
             }
@@ -170,6 +174,7 @@ fun GameZone(
     onRestartGame: () -> Unit,
     onBackToHome: () -> Unit,
     saveGame: (String, Int, String) -> Unit,
+    getAllGames: () -> Flow<List<TrivialGame>>  // Añadido: función lambda para obtener todos los juegos
 ) {
     // Estado para almacenar la respuesta seleccionada
     var selectedAnswer by remember { mutableStateOf<String?>(null) }
@@ -244,7 +249,8 @@ fun GameZone(
                 category = category,
                 onRestartGame = onRestartGame,
                 onBackToHome = { onBackToHome() },
-                saveGame = saveGame
+                saveGame = saveGame,
+                getAllGames = getAllGames  // Usar la función lambda para obtener todos los juegos
             )
         } else {
             // Next button
@@ -267,8 +273,6 @@ fun GameZone(
 
 
 
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FinalScoreDialog(
@@ -279,14 +283,17 @@ private fun FinalScoreDialog(
     onRestartGame: () -> Unit,
     onBackToHome: () -> Unit,
     saveGame: (String, Int, String) -> Unit,
+    getAllGames: () -> Flow<List<TrivialGame>>,  // Añadido: función lambda para obtener todos los juegos
     modifier: Modifier = Modifier,
 ) {
-    // Insertar el registro del juego en la base de datos
-    saveGame(player, score, category)
+    // Evitar llamada repetitiva a saveGame
+    LaunchedEffect(Unit) {
+        saveGame(player, score, category)
+    }
 
-    val playerScores = listOf(
-        PlayerScore(player, category, score)  // Añadido: agregar el puntaje del jugador a la lista
-    )
+    // Obtenemos los puntajes de los jugadores de la base de datos
+    val games by getAllGames().collectAsState(initial = emptyList())
+    val playerScores = games.map { PlayerScore(it.payer, it.category, it.score) }
 
     AlertDialog(
         onDismissRequest = { onBackToHome() },
@@ -348,9 +355,12 @@ fun FinalScoreDialogPreview() {
         category = "CategoryName",
         onRestartGame = {},
         onBackToHome = {},
-        saveGame = { _, _, _ -> }
+        saveGame = { _, _, _ -> },
+        getAllGames = { flowOf(emptyList()) }  // Implementación vacía para el preview
     )
 }
+
+
 
 
 @Preview(showBackground = true)
